@@ -303,10 +303,10 @@ func newEtcdPod(m *etcdutil.Member, initialCluster []string, clusterName, state,
 		"--initial-cluster=%s --initial-cluster-state=%s",
 		dataDir, m.Name, m.PeerURL(), m.ListenPeerURL(), m.ListenClientURL(), m.ClientURL(), strings.Join(initialCluster, ","), state)
 	if m.SecurePeer {
-		commands += fmt.Sprintf(" --peer-client-cert-auth=true --peer-trusted-ca-file=%[1]s/peer-ca.crt --peer-cert-file=%[1]s/peer.crt --peer-key-file=%[1]s/peer.key", peerTLSDir)
+		commands += fmt.Sprintf(" --peer-client-cert-auth=true --peer-trusted-ca-file=%[1]s/ca.crt --peer-cert-file=%[1]s/tls.crt --peer-key-file=%[1]s/tls.key", peerTLSDir)
 	}
 	if m.SecureClient {
-		commands += fmt.Sprintf(" --client-cert-auth=true --trusted-ca-file=%[1]s/server-ca.crt --cert-file=%[1]s/server.crt --key-file=%[1]s/server.key", serverTLSDir)
+		commands += fmt.Sprintf(" --client-cert-auth=true --trusted-ca-file=%[1]s/ca.crt --cert-file=%[1]s/tls.crt --key-file=%[1]s/tls.key", serverTLSDir)
 	}
 	if state == "new" {
 		commands = fmt.Sprintf("%s --initial-cluster-token=%s", commands, token)

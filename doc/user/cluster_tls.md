@@ -32,40 +32,45 @@ spec:
 `member.peerSecret` contains pem-encoded private keys and x509 certificates for etcd peer communication.
 
 The peer TLS assets should have the following:
-- **peer.crt**: peer communication cert.
+- **tls.crt**: peer communication cert.
   The certificate should allow wildcard domain `*.${clusterName}.${namespace}.svc` and `*.${clusterName}.${namespace}.svc.${cluster_domain}`.
   The example shown above uses `*.example.default.svc` and `*.example.default.svc.cluster.local`.
-- **peer.key**: peer communication key.
-- **peer-ca.crt**: CA cert for this peer key-cert pair.
+- **tls.key**: peer communication key.
+- **tls.crt**: CA cert for this peer key-cert pair.
 
-Create a secret using the `peer.key`, `peer.crt`, and `peer-ca.crt`:
+Create a secret using the `tls.key`, `tls.crt`, and `ca.crt`:
+
 
 ```
-$ kubectl create secret generic etcd-peer-tls --from-file=peer-ca.crt --from-file=peer.crt --from-file=peer.key
+$ kubectl create secret generic etcd-peer-tls --from-file=ca.crt --from-file=tls.crt --from-file=tls.key
 ```
 
 Once passed, etcd operator will mount this secret at `/etc/etcdtls/member/peer-tls/` for each etcd member pod in the cluster.
+
+*Note: The keys `peer.crt`, `peer.key` and `peer-ca.crt` were used before v0.9.5, they are deprecated now*
 
 ### member.serverSecret
 
 `member.serverSecret` contains pem-encoded private keys and x509 certificates for etcd client communication on server side.
 
 The client TLS assets should have the following:
-- **server.crt**: etcd server's client communication cert.
+- **tls.crt**: etcd server's client communication cert.
   The certificate should allow wildcard domain `*.${clusterName}.${namespace}.svc`,
   `${clusterName}-client.${namespace}.svc`, and `localhost`.
   The example shown above uses `*.example.default.svc`, `example-client.default.svc`, and `localhost`.
   To use more DNS name or IP to access etcd server, please add it here.
-- **server.key**: etcd server's client communication key.
-- **server-ca.crt**: CA cert for validating the certs of etcd clients.
+- **tls.key**: etcd server's client communication key.
+- **ca.crt**: CA cert for validating the certs of etcd clients.
 
-Create a secret using `server.key`, `server.crt`, and `server-ca.crt`:
+Create a secret using `tls.key`, `tls.crt`, and `ca.crt` :
 
 ```
-$ kubectl create secret generic etcd-server-tls --from-file=server-ca.crt --from-file=server.crt --from-file=server.key
+$ kubectl create secret generic etcd-server-tls --from-file=ca.crt --from-file=tls.crt --from-file=tls.key
 ```
 
 etcd operator will mount this secret at `/etc/etcdtls/member/server-tls/` for each etcd member pod in the cluster.
+
+*Note: The keys `server.key`, `server.crt`, and `server-ca.crt` were used before v0.9.5, they are deprecated now*
 
 ### operatorSecret
 
@@ -74,18 +79,20 @@ The operator must send client requests (such as snapshot, healthy check, add/rem
 `operatorSecret` contains pem-encoded private keys and x509 certificates for communicating with etcd server via client URL.
 
 The operator's etcd TLS assets should have the following:
-- **etcd-client.crt**: operator's etcd x509 client cert.
-- **etcd-client.key**: operator's etcd x509 client key.
-- **etcd-client-ca.crt**: CA cert for validating the certs of etcd members.
+- **tls.crt**: operator's etcd x509 client cert.
+- **tls.key**: operator's etcd x509 client key.
+- **ca.crt**: CA cert for validating the certs of etcd members.
 They correspond to the `--cert`,`--key`, and `--cacert` arguments of `etcdctl`.
 
-Create a secret containing the `etcd-client.crt`, `etcd-client.key`, and `etcd-client-ca.crt`:
+Create a secret using `tls.key`, `tls.crt`, and `ca.crt` :
 
 ```
-$ kubectl create secret generic etcd-client-tls --from-file=etcd-client-ca.crt --from-file=etcd-client.crt --from-file=etcd-client.key
+$ kubectl create secret generic etcd-client-tls --from-file=ca.crt --from-file=tls.crt --from-file=tls.key
 ```
 
 Pass `etcd-client-tls` to the `operatorSecret` field.
+
+*Note: The keys`etcd-client.crt`, `etcd-client.key`, and `etcd-client-ca.crt` were used before v0.9.5, they are deprecated now*
 
 ### Access a secure etcd cluster
 
@@ -96,20 +103,41 @@ To access the cluster, use the service `example-client.default.svc`, which match
 Assume the following certs are used:
 
 ```
-etcd-client.crt
-etcd-client.key
-etcd-client-ca.crt
+tls.crt
+tls.key
+ca.crt
 ```
 
-`etcd-client.crt` and `etcd-client.key` should be trusted by the etcd server's client CA `server-ca.crt`.
+The client `tls.crt` and `tls.key` should be trusted by the etcd server's client CA `ca.crt`.
 
-`server.crt` and `server.key` should be trusted by the etcd client CA `etcd-client-ca.crt`.
+The server `tls.crt` and `tls.key` should be trusted by the etcd client CA `ca.crt`.
 
 The following  example `etcdctl` command will list members from the secure etcd cluster. Run this command from within a Kubernetes Pod to access the service name:
 
 ```
-$ ETCDCTL_API=3 etcdctl --endpoints=https://example-client.default.svc:2379 \
-    --cert=etcd-client.crt --key=etcd-client.key --cacert=etcd-client-ca.crt \
+$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: etcd
+spec:
+  containers:
+  - name: etcd-client
+    image: quay.io/coreos/etcd
+    volumeMounts:
+    - name: tls
+      mountPath: "/etc/tls"
+      readOnly: true
+  volumes:
+  - name: tls
+    secret:
+      secretName: etcd-client-tls
+EOF
+
+$ kubectl exec -it etcd /bin/sh
+
+/ # ETCDCTL_API=3 etcdctl --endpoints=https://example-client.default.svc:2379 \
+    --cert=/etc/tls/tls.crt --key=/etc/tls/tls.key --cacert=/etc/tls/ca.crt \
     member list -w table
 ```
 

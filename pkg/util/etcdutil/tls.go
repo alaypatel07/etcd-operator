@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	CliCertFile = "etcd-client.crt"
-	CliKeyFile  = "etcd-client.key"
-	CliCAFile   = "etcd-client-ca.crt"
+	CliCertFile = "tls.crt"
+	CliKeyFile  = "tls.key"
+	CliCAFile   = "ca.crt"
 )
 
 func NewTLSConfig(certData, keyData, caData []byte) (*tls.Config, error) {
